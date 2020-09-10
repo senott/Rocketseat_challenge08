@@ -42,37 +42,57 @@ const CartProvider: React.FC = ({ children }) => {
     loadProducts();
   }, []);
 
-  async function createNewProduct(newProduct: Product): Promise<void> {
-    const newProducts = products
-      ? products.filter(item => item.id !== newProduct.id)
-      : [];
+  const createNewProduct = useCallback(
+    async (newProduct: Product): Promise<void> => {
+      const newProducts = products
+        ? products.filter(item => item.id !== newProduct.id)
+        : [];
 
-    newProducts.push(newProduct);
+      newProducts.push(newProduct);
 
-    await AsyncStorage.setItem(
-      '@GoMarktplace:products',
-      JSON.stringify(newProducts),
-    );
+      await AsyncStorage.setItem(
+        '@GoMarktplace:products',
+        JSON.stringify(newProducts),
+      );
 
-    setProducts(newProducts);
-  }
+      setProducts(newProducts);
+    },
+    [products],
+  );
 
-  const addToCart = useCallback(async product => {
-    const existingProduct = products
-      ? products.filter(item => product.id === item.id)
-      : [];
+  const removeProduct = useCallback(
+    async id => {
+      const newProducts = products.filter(item => item.id !== id);
 
-    if (existingProduct.length > 0) {
-      const newProduct: Product = {
-        ...existingProduct[0],
-        quantity: existingProduct[0].quantity += 1,
-      };
-      createNewProduct(newProduct);
-    } else {
-      const newProduct: Product = { ...product, quantity: 1 };
-      createNewProduct(newProduct);
-    }
-  }, []);
+      await AsyncStorage.setItem(
+        '@GoMarktplace:products',
+        JSON.stringify(newProducts),
+      );
+
+      setProducts(newProducts);
+    },
+    [products],
+  );
+
+  const addToCart = useCallback(
+    async product => {
+      const existingProduct = products
+        ? products.filter(item => product.id === item.id)
+        : [];
+
+      if (existingProduct.length > 0) {
+        const newProduct: Product = {
+          ...existingProduct[0],
+          quantity: existingProduct[0].quantity += 1,
+        };
+        createNewProduct(newProduct);
+      } else {
+        const newProduct: Product = { ...product, quantity: 1 };
+        createNewProduct(newProduct);
+      }
+    },
+    [createNewProduct, products],
+  );
 
   const increment = useCallback(
     async id => {
@@ -88,9 +108,23 @@ const CartProvider: React.FC = ({ children }) => {
     [products, createNewProduct],
   );
 
-  const decrement = useCallback(async id => {
-    // TODO DECREMENTS A PRODUCT QUANTITY IN THE CART
-  }, []);
+  const decrement = useCallback(
+    async id => {
+      const updatedProduct = products.filter(item => item.id === id);
+
+      const newProduct: Product = {
+        ...updatedProduct[0],
+        quantity: updatedProduct[0].quantity -= 1,
+      };
+
+      if (newProduct.quantity <= 0) {
+        removeProduct(newProduct.id);
+      } else {
+        createNewProduct(newProduct);
+      }
+    },
+    [products, createNewProduct, removeProduct],
+  );
 
   const value = React.useMemo(
     () => ({ addToCart, increment, decrement, products }),
